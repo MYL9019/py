@@ -2,6 +2,9 @@ from flask import Flask
 
 app = Flask(__name__)
 
+# 关键配置
+app.config['JSON_AS_ASCII'] = False
+
 @app.route("/")
 def hello():
     return "hello world"
@@ -9,8 +12,8 @@ def hello():
 @app.route("/age/<name>")
 def age(name):
     data = {
-        "maoyinlu": 18,
-        "zhangsan": 20
+        "毛银露": 18,
+        "张三": 20
     }
 
     return {
