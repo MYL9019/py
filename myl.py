@@ -12,7 +12,7 @@ def hello():
 @app.route("/age/<name>")
 def age(name):
     data = {
-        "maoyinlu": {
+        "m毛银露": {
             "name": "毛银露",
             "age": 18
         },
