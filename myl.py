@@ -2,8 +2,8 @@ from flask import Flask, jsonify
 
 app = Flask(__name__)
 
-# 关闭中文转义
-app.config['JSON_AS_ASCII'] = False
+# 关闭中文 Unicode 转义
+app.json.ensure_ascii = False
 
 @app.route("/")
 def hello():
