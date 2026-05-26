@@ -1,8 +1,8 @@
-from flask import Flask
+from flask import Flask, jsonify
 
 app = Flask(__name__)
 
-# 关键配置
+# 关闭中文转义
 app.config['JSON_AS_ASCII'] = False
 
 @app.route("/")
@@ -12,13 +12,22 @@ def hello():
 @app.route("/age/<name>")
 def age(name):
     data = {
-        "毛银露": 18,
-        "张三": 20
+        "maoyinlu": {
+            "name": "毛银露",
+            "age": 18
+        },
+        "zhangsan": {
+            "name": "张三",
+            "age": 20
+        }
     }
 
-    return {
-        "name": name,
-        "age": data.get(name, "未知")
-    }
+    return jsonify(
+        data.get(name, {
+            "name": name,
+            "age": "未知"
+        })
+    )
 
-app.run(host="0.0.0.0", port=5000)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
