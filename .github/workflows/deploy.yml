@@ -18,7 +18,20 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           script: |
+            set -e
             cd /opt/py
             git pull origin main
             systemctl restart py-zidonghua
             systemctl status py-zidonghua --no-pager
+
+      - name: Notify Feishu on failure
+        if: failure()
+        run: |
+          curl -X POST '${{ secrets.FEISHU_WEBHOOK }}' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "msg_type": "text",
+            "content": {
+              "text": "🚨 自动部署失败\n项目：MYL9019/py\n分支：main\n请打开 GitHub Actions 查看日志"
+            }
+          }'
