@@ -13,16 +13,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Upload Python files
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Upload Python files to AWS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
-          source: "services/python/*"
+          source: "services/python/app.py,services/python/myl.py"
           target: "/myl/py"
           strip_components: 2
+          overwrite: true
 
       - name: Deploy Python to AWS
         uses: appleboy/ssh-action@v1.2.0
@@ -34,44 +38,67 @@ jobs:
           script: |
             set -e
 
+            echo "======================================"
+            echo "开始部署 Python"
+            echo "======================================"
+
             cd /myl/py
 
-            if [ -f requirements.txt ]; then
-              python3 -m pip install -r requirements.txt
-            fi
+            echo "当前目录："
+            pwd
+
+            echo "当前文件："
+            ls -la
+
+            echo "======================================"
+            echo "重启 Python 服务"
+            echo "======================================"
 
             systemctl restart py-zidonghua
 
+            echo "等待服务启动..."
             sleep 8
 
+            echo "======================================"
+            echo "检查 Python 服务"
+            echo "======================================"
+
             if ! systemctl is-active --quiet py-zidonghua; then
+              echo "❌ py-zidonghua 启动失败"
+
+              echo "===== systemctl 状态 ====="
               systemctl status py-zidonghua --no-pager || true
+
+              echo "===== 最近 100 行日志 ====="
               journalctl -u py-zidonghua -n 100 --no-pager || true
+
               exit 1
             fi
 
-            echo "Python 服务部署成功"
+            echo "✅ Python 服务运行正常"
+
+            systemctl status py-zidonghua --no-pager
 
       - name: Notify Feishu Python success
         if: success()
         run: |
           curl -X POST '${{ secrets.FEISHU_WEBHOOK }}' \
-          -H 'Content-Type: application/json' \
-          -d '{
-            "msg_type": "text",
-            "content": {
-              "text": "✅ Python 部署成功\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n目录：/myl/py\n分支：main"
-            }
-          }'
+            -H 'Content-Type: application/json' \
+            -d '{
+              "msg_type": "text",
+              "content": {
+                "text": "✅ Python 部署成功\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n目录：/myl/py\n分支：main"
+              }
+            }'
 
       - name: Notify Feishu Python failure
         if: failure()
         run: |
           curl -X POST '${{ secrets.FEISHU_WEBHOOK }}' \
-          -H 'Content-Type: application/json' \
-          -d '{
-            "msg_type": "text",
-            "content": {
-              "text": "🚨 Python 部署失败\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n目录：/myl/py\n分支：main\n请查看 GitHub Actions 日志"
-            }
-          }'
+            -H 'Content-Type: application/json' \
+            -d '{
+              "msg_type": "text",
+              "content": {
+                "text": "🚨 Python 部署失败\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n目录：/myl/py\n分支：main\n请查看 GitHub Actions 日志"
+              }
+            }'
