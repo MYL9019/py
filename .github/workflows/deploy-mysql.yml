@@ -19,7 +19,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           source: "deploy/install_mysql80.sh"
-          target: "/opt/mysql-deploy"
+          target: "/myl//opt/mysql-deploy"
 
       - name: 在 AWS 安装 MySQL 8.0
         uses: appleboy/ssh-action@v1.2.0
@@ -29,11 +29,11 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           script: |
-            chmod +x /opt/mysql-deploy/deploy/install_mysql80.sh
+            chmod +x /myl/opt/mysql-deploy/deploy/install_mysql80.sh
 
             export MYSQL_ROOT_PASSWORD='${{ secrets.MYSQL_ROOT_PASSWORD }}'
             export MYSQL_DATABASE='${{ secrets.MYSQL_DATABASE }}'
             export MYSQL_USER='${{ secrets.MYSQL_USER }}'
             export MYSQL_PASSWORD='${{ secrets.MYSQL_PASSWORD }}'
 
-            /opt/mysql-deploy/deploy/install_mysql80.sh
+           /myl/opt/mysql-deploy/deploy/install_mysql80.sh
