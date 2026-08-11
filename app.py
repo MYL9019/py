@@ -1,21 +1,58 @@
-from flask import Flask
+"""
+print ("hello,word")
+"""
+#print ('goodbye word')
+#print ('hello 毛银露')
 
-app = Flask(__name__)
+#整型
+#print (0b100)
+#print (0o100)
+#print (100)
+#print (0x100)
 
-@app.route("/")
-def hello():
-    return "hello world"
+#浮点型
+#print (123.456)
+#print (1.23456e2)
 
-@app.route("/age/<name>")
-def age(name):
-    data = {
-        "毛银露": 18,
-        "张三": 20
-    }
+#变量练习
+"""
+a=45
+b=12
+print(a,b)
+print('a b')
+print(a+b)
+print(a-b)
+print(a*b)
+print(a/b)
+"""
 
-    return {
-        "name": name,
-        "age": data.get(name, "未知")
-    }
 
-app.run(host="0.0.0.0", port=5000)
+#使用type函数检查变量类型
+"""
+a=100
+b=123.45
+c='hell word'
+d=True
+print(type(a))
+print(type(b))
+print(type(c))
+print(type(d))
+"""
+
+"""
+file=open('致橡树.txt','r',encoding='utf-8')
+print(file.read())
+file.close()
+"""
+
+
+file = open('致橡树.txt', 'r', encoding='utf-8')
+for line in file:
+    print(line, end='')
+file.close()
+
+file = open('致橡树.txt', 'r', encoding='utf-8')
+lines = file.readlines()
+for line in lines:
+    print(line, end='')
+file.close()

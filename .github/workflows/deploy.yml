@@ -19,7 +19,7 @@ jobs:
           port: 22
           script: |
             set -e
-            cd /opt/py
+            cd /myl/py
             git pull origin main
             systemctl restart py-zidonghua
             systemctl status py-zidonghua --no-pager
