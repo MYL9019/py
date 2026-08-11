@@ -1,4 +1,3 @@
-raise RuntimeError("test rollback after switch")
 from flask import Flask, jsonify
 
 app = Flask(__name__)
