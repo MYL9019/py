@@ -45,6 +45,9 @@ jobs:
 
               echo "❌ py-zidonghua 启动失败"
 
+              # 创建故障标记
+              touch /tmp/py-zidonghua.failed
+
               echo "=============================="
               echo "systemctl 状态"
               echo "=============================="
@@ -52,7 +55,7 @@ jobs:
               systemctl status py-zidonghua --no-pager || true
 
               echo "=============================="
-              echo "最近 50 行日志"
+              echo "最近日志"
               echo "=============================="
 
               journalctl -u py-zidonghua -n 50 --no-pager || true
@@ -60,9 +63,25 @@ jobs:
               exit 1
             fi
 
-            echo "=============================="
             echo "✅ py-zidonghua 启动成功"
-            echo "=============================="
+
+            # 如果之前有失败标记，说明服务恢复
+            if [ -f /tmp/py-zidonghua.failed ]; then
+              echo "检测到服务从故障状态恢复"
+
+              curl -X POST '${{ secrets.FEISHU_WEBHOOK }}' \
+                -H 'Content-Type: application/json' \
+                -d '{
+                  "msg_type": "text",
+                  "content": {
+                    "text": "✅ 服务已恢复\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n状态：服务已经恢复正常运行"
+                  }
+                }'
+
+              rm -f /tmp/py-zidonghua.failed
+
+              echo "✅ 恢复通知已发送"
+            fi
 
             systemctl status py-zidonghua --no-pager
 
@@ -74,6 +93,6 @@ jobs:
           -d '{
             "msg_type": "text",
             "content": {
-              "text": "🚨 自动部署失败\n项目：MYL9019/py\n分支：main\n服务器：${{ secrets.SERVER_HOST }}\n请打开 GitHub Actions 查看详细日志"
+              "text": "🚨 自动部署失败\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n请打开 GitHub Actions 查看详细日志"
             }
           }'
