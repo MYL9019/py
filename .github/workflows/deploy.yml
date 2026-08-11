@@ -19,9 +19,51 @@ jobs:
           port: 22
           script: |
             set -e
+
             cd /myl/py
+
+            echo "=============================="
+            echo "开始拉取最新代码"
+            echo "=============================="
+
             git pull origin main
+
+            echo "=============================="
+            echo "正在重启 Python 服务"
+            echo "=============================="
+
             systemctl restart py-zidonghua
+
+            echo "等待程序启动..."
+            sleep 8
+
+            echo "=============================="
+            echo "检查服务状态"
+            echo "=============================="
+
+            if ! systemctl is-active --quiet py-zidonghua; then
+
+              echo "❌ py-zidonghua 启动失败"
+
+              echo "=============================="
+              echo "systemctl 状态"
+              echo "=============================="
+
+              systemctl status py-zidonghua --no-pager || true
+
+              echo "=============================="
+              echo "最近 50 行日志"
+              echo "=============================="
+
+              journalctl -u py-zidonghua -n 50 --no-pager || true
+
+              exit 1
+            fi
+
+            echo "=============================="
+            echo "✅ py-zidonghua 启动成功"
+            echo "=============================="
+
             systemctl status py-zidonghua --no-pager
 
       - name: Notify Feishu on failure
@@ -32,6 +74,6 @@ jobs:
           -d '{
             "msg_type": "text",
             "content": {
-              "text": "🚨 自动部署失败\n项目：MYL9019/py\n分支：main\n请打开 GitHub Actions 查看日志"
+              "text": "🚨 自动部署失败\n项目：MYL9019/py\n分支：main\n服务器：${{ secrets.SERVER_HOST }}\n请打开 GitHub Actions 查看详细日志"
             }
           }'
