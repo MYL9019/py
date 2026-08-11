@@ -34,3 +34,4 @@ if __name__ == "__main__":
 # test python deploy success
 
 # test python deploy failure alert
+this is syntax error
