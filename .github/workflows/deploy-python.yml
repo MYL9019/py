@@ -16,7 +16,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Upload Python files to AWS
+      - name: Upload Python release
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -24,11 +24,11 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           source: "services/python/app.py,services/python/myl.py"
-          target: "/myl/py"
+          target: "/myl/python-upload"
           strip_components: 2
           overwrite: true
 
-      - name: Deploy Python to AWS
+      - name: Deploy Python with rollback
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -38,46 +38,104 @@ jobs:
           script: |
             set -e
 
-            echo "======================================"
-            echo "开始部署 Python"
-            echo "======================================"
-
-            cd /myl/py
-
-            echo "当前目录："
-            pwd
-
-            echo "当前文件："
-            ls -la
+            BASE_DIR="/myl/python"
+            UPLOAD_DIR="/myl/python-upload"
+            RELEASE_ID="$(date +%Y%m%d%H%M%S)"
+            NEW_RELEASE="$BASE_DIR/releases/$RELEASE_ID"
+            CURRENT_LINK="$BASE_DIR/current"
 
             echo "======================================"
-            echo "重启 Python 服务"
+            echo "开始 Python 原子部署"
             echo "======================================"
+
+            mkdir -p "$BASE_DIR/releases"
+            mkdir -p "$NEW_RELEASE"
+
+            echo "复制新版本文件..."
+            cp -a "$UPLOAD_DIR/." "$NEW_RELEASE/"
+
+            cd "$NEW_RELEASE"
+
+            echo "======================================"
+            echo "检查 Python 语法"
+            echo "======================================"
+
+            python3 -m py_compile myl.py
+
+            if [ -f app.py ]; then
+              python3 -m py_compile app.py
+            fi
+
+            if [ -f requirements.txt ]; then
+              echo "安装 Python 依赖..."
+              python3 -m pip install -r requirements.txt
+            fi
+
+            OLD_RELEASE=""
+
+            if [ -L "$CURRENT_LINK" ]; then
+              OLD_RELEASE="$(readlink -f "$CURRENT_LINK")"
+            fi
+
+            echo "旧版本：$OLD_RELEASE"
+            echo "新版本：$NEW_RELEASE"
+
+            echo "======================================"
+            echo "切换到新版本"
+            echo "======================================"
+
+            ln -sfn "$NEW_RELEASE" "$CURRENT_LINK"
 
             systemctl restart py-zidonghua
 
             echo "等待服务启动..."
             sleep 8
 
-            echo "======================================"
-            echo "检查 Python 服务"
-            echo "======================================"
-
             if ! systemctl is-active --quiet py-zidonghua; then
-              echo "❌ py-zidonghua 启动失败"
 
-              echo "===== systemctl 状态 ====="
+              echo "❌ 新版本启动失败"
+
               systemctl status py-zidonghua --no-pager || true
-
-              echo "===== 最近 100 行日志 ====="
               journalctl -u py-zidonghua -n 100 --no-pager || true
+
+              if [ -n "$OLD_RELEASE" ] && [ -d "$OLD_RELEASE" ]; then
+
+                echo "======================================"
+                echo "开始自动回滚"
+                echo "======================================"
+
+                ln -sfn "$OLD_RELEASE" "$CURRENT_LINK"
+
+                systemctl restart py-zidonghua
+
+                sleep 5
+
+                if systemctl is-active --quiet py-zidonghua; then
+                  echo "✅ 已自动回滚到旧版本"
+                else
+                  echo "❌ 回滚后服务仍然异常"
+                  systemctl status py-zidonghua --no-pager || true
+                  journalctl -u py-zidonghua -n 100 --no-pager || true
+                fi
+
+              else
+                echo "没有找到可回滚的旧版本"
+              fi
 
               exit 1
             fi
 
-            echo "✅ Python 服务运行正常"
+            echo "======================================"
+            echo "✅ Python 新版本部署成功"
+            echo "======================================"
 
             systemctl status py-zidonghua --no-pager
+
+            echo "清理旧版本，只保留最近 5 个..."
+
+            cd "$BASE_DIR/releases"
+
+            ls -1dt */ 2>/dev/null | tail -n +6 | xargs -r rm -rf
 
       - name: Notify Feishu Python success
         if: success()
@@ -87,7 +145,7 @@ jobs:
             -d '{
               "msg_type": "text",
               "content": {
-                "text": "✅ Python 部署成功\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n目录：/myl/py\n分支：main"
+                "text": "✅ Python 部署成功\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n部署方式：原子发布\n状态：新版本已上线"
               }
             }'
 
@@ -99,6 +157,6 @@ jobs:
             -d '{
               "msg_type": "text",
               "content": {
-                "text": "🚨 Python 部署失败\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n目录：/myl/py\n分支：main\n请查看 GitHub Actions 日志"
+                "text": "🚨 Python 部署失败\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n部署方式：原子发布\n状态：部署失败，已尝试自动回滚\n请查看 GitHub Actions 日志"
               }
             }'
