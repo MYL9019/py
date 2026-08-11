@@ -8,10 +8,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 拉取代码
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 上传 MySQL 安装脚本
+      - name: Upload MySQL script
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -19,9 +19,9 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           source: "deploy/install_mysql80.sh"
-          target: "/myl//opt/mysql-deploy"
+          target: "/myl/mysql"
 
-      - name: 在 AWS 安装 MySQL 8.0
+      - name: Deploy MySQL
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -29,11 +29,50 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           script: |
-            chmod +x /myl/opt/mysql-deploy/deploy/install_mysql80.sh
+            set -e
+
+            chmod +x /myl/mysql/deploy/install_mysql80.sh
 
             export MYSQL_ROOT_PASSWORD='${{ secrets.MYSQL_ROOT_PASSWORD }}'
             export MYSQL_DATABASE='${{ secrets.MYSQL_DATABASE }}'
             export MYSQL_USER='${{ secrets.MYSQL_USER }}'
             export MYSQL_PASSWORD='${{ secrets.MYSQL_PASSWORD }}'
 
-           /myl/opt/mysql-deploy/deploy/install_mysql80.sh
+            /myl/mysql/deploy/install_mysql80.sh
+
+            mysql --version
+
+            if ! systemctl is-active --quiet mysqld; then
+              echo "MySQL 服务启动失败"
+
+              systemctl status mysqld --no-pager || true
+              journalctl -u mysqld -n 100 --no-pager || true
+
+              exit 1
+            fi
+
+            echo "MySQL 部署成功"
+
+      - name: Notify Feishu MySQL success
+        if: success()
+        run: |
+          curl -X POST '${{ secrets.FEISHU_WEBHOOK }}' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "msg_type": "text",
+            "content": {
+              "text": "✅ MySQL 部署成功\n项目：MYL9019/py\n服务：MySQL 8.0\n服务器：${{ secrets.SERVER_HOST }}\n目录：/myl/mysql"
+            }
+          }'
+
+      - name: Notify Feishu MySQL failure
+        if: failure()
+        run: |
+          curl -X POST '${{ secrets.FEISHU_WEBHOOK }}' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "msg_type": "text",
+            "content": {
+              "text": "🚨 MySQL 部署失败\n项目：MYL9019/py\n服务：MySQL 8.0\n服务器：${{ secrets.SERVER_HOST }}\n请查看 GitHub Actions 日志"
+            }
+          }'

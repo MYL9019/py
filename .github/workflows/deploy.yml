@@ -1,4 +1,4 @@
-name: Auto Deploy
+name: Auto Deploy Python
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to AWS
+      - name: Deploy Python to AWS
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -22,70 +22,45 @@ jobs:
 
             cd /myl/py
 
-            echo "=============================="
-            echo "开始拉取最新代码"
-            echo "=============================="
-
+            echo "拉取最新代码..."
             git pull origin main
 
-            echo "=============================="
-            echo "正在重启 Python 服务"
-            echo "=============================="
+            if [ -f requirements.txt ]; then
+              echo "安装 Python 依赖..."
+              python3 -m pip install -r requirements.txt
+            fi
 
+            echo "重启 Python 服务..."
             systemctl restart py-zidonghua
 
-            echo "等待程序启动..."
+            echo "等待服务启动..."
             sleep 8
 
-            echo "=============================="
-            echo "检查服务状态"
-            echo "=============================="
-
             if ! systemctl is-active --quiet py-zidonghua; then
-
-              echo "❌ py-zidonghua 启动失败"
-
-              # 创建故障标记
-              touch /tmp/py-zidonghua.failed
-
-              echo "=============================="
-              echo "systemctl 状态"
-              echo "=============================="
+              echo "Python 服务启动失败"
 
               systemctl status py-zidonghua --no-pager || true
-
-              echo "=============================="
-              echo "最近日志"
-              echo "=============================="
-
-              journalctl -u py-zidonghua -n 50 --no-pager || true
+              journalctl -u py-zidonghua -n 100 --no-pager || true
 
               exit 1
             fi
 
-            echo "✅ py-zidonghua 启动成功"
-
-            # 如果之前有失败标记，说明服务恢复
-            if [ -f /tmp/py-zidonghua.failed ]; then
-              echo "检测到服务从故障状态恢复"
-
-              curl -X POST '${{ secrets.FEISHU_WEBHOOK }}' \
-                -H 'Content-Type: application/json' \
-                -d '{
-                  "msg_type": "text",
-                  "content": {
-                    "text": "✅ 服务已恢复\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n状态：服务已经恢复正常运行"
-                  }
-                }'
-
-              rm -f /tmp/py-zidonghua.failed
-
-              echo "✅ 恢复通知已发送"
-            fi
-
+            echo "Python 服务部署成功"
             systemctl status py-zidonghua --no-pager
 
-      - name: Notify Feishu on failure
+      - name: Notify Feishu Python success
+        if: success()
+        run: |
+          curl -X POST '${{ secrets.FEISHU_WEBHOOK }}' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "msg_type": "text",
+            "content": {
+              "text": "✅ Python 部署成功\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n目录：/myl/py\n分支：main"
+            }
+          }'
+
+      - name: Notify Feishu Python failure
         if: failure()
         run: |
           curl -X POST '${{ secrets.FEISHU_WEBHOOK }}' \
@@ -93,6 +68,6 @@ jobs:
           -d '{
             "msg_type": "text",
             "content": {
-              "text": "🚨 自动部署失败\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n请打开 GitHub Actions 查看详细日志"
+              "text": "🚨 Python 部署失败\n项目：MYL9019/py\n服务：py-zidonghua\n服务器：${{ secrets.SERVER_HOST }}\n目录：/myl/py\n分支：main\n请查看 GitHub Actions 日志"
             }
           }'
