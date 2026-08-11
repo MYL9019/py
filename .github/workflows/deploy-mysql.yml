@@ -43,8 +43,7 @@ jobs:
             export MYSQL_PASSWORD='${{ secrets.MYSQL_PASSWORD }}'
 
             /myl/mysql/deploy/install_mysql80.sh
-            echo "故意制造失败，测试飞书告警"
-            exit 1
+
             echo "=============================="
             echo "检查 MySQL 服务"
             echo "=============================="

@@ -27,7 +27,7 @@ else
 
   echo "安装 MySQL Server..."
 
-  dnf install -y mysql-community-server-not-exist
+  dnf install -y mysql-community-server
 
   echo "启动 MySQL..."
 
