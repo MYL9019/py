@@ -4,12 +4,26 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "services/python/**"
+      - ".github/workflows/deploy-python.yml"
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Upload Python files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          source: "services/python/*"
+          target: "/myl/py"
+          strip_components: 2
+
       - name: Deploy Python to AWS
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -22,31 +36,21 @@ jobs:
 
             cd /myl/py
 
-            echo "拉取最新代码..."
-            git pull origin main
-
             if [ -f requirements.txt ]; then
-              echo "安装 Python 依赖..."
               python3 -m pip install -r requirements.txt
             fi
 
-            echo "重启 Python 服务..."
             systemctl restart py-zidonghua
 
-            echo "等待服务启动..."
             sleep 8
 
             if ! systemctl is-active --quiet py-zidonghua; then
-              echo "Python 服务启动失败"
-
               systemctl status py-zidonghua --no-pager || true
               journalctl -u py-zidonghua -n 100 --no-pager || true
-
               exit 1
             fi
 
             echo "Python 服务部署成功"
-            systemctl status py-zidonghua --no-pager
 
       - name: Notify Feishu Python success
         if: success()
