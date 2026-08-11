@@ -1,3 +1,4 @@
+raise RuntimeError("test rollback after switch")
 from flask import Flask, jsonify
 
 app = Flask(__name__)
@@ -34,4 +35,3 @@ if __name__ == "__main__":
 # test python deploy success
 
 # test python deploy failure alert
-this is syntax error
