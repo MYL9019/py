@@ -1,0 +1,89 @@
+name: Auto Deploy Nginx
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "services/nginx/**"
+      - ".github/workflows/deploy-nginx.yml"
+
+jobs:
+  deploy-nginx:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Upload Nginx files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+
+          source: "services/nginx/**"
+
+          target: "/myl/nginx-upload"
+
+          strip_components: 2
+
+          overwrite: true
+
+      - name: Deploy Nginx
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+
+          script: |
+            set -e
+
+            echo "======================================"
+            echo "检查上传文件"
+            echo "======================================"
+
+            find /myl/nginx-upload \
+              -maxdepth 4 \
+              -type f \
+              -print
+
+            if [ ! -f /myl/nginx-upload/install_nginx.sh ]; then
+              echo "❌ install_nginx.sh 上传失败"
+              exit 1
+            fi
+
+            chmod +x \
+              /myl/nginx-upload/install_nginx.sh
+
+            /myl/nginx-upload/install_nginx.sh
+
+      - name: Notify Feishu Nginx success
+        if: success()
+        run: |
+          curl -X POST '${{ secrets.FEISHU_WEBHOOK }}' \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "msg_type": "text",
+              "content": {
+                "text": "✅ Nginx 自动部署成功\n项目：MYL9019/py\n服务：Nginx\n服务器：${{ secrets.SERVER_HOST }}\n触发方式：Git Push\n配置检查：通过\nHTTP健康检查：通过"
+              }
+            }'
+
+      - name: Notify Feishu Nginx failure
+        if: failure()
+        run: |
+          curl -X POST '${{ secrets.FEISHU_WEBHOOK }}' \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "msg_type": "text",
+              "content": {
+                "text": "🚨 Nginx 自动部署失败\n项目：MYL9019/py\n服务：Nginx\n服务器：${{ secrets.SERVER_HOST }}\n请查看 GitHub Actions 日志"
+              }
+            }'
